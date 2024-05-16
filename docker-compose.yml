@@ -1,0 +1,253 @@
+services:
+  plex:
+    container_name: plex
+    image: plexinc/pms-docker
+    restart: unless-stopped
+
+    environment:
+      - TZ=America/Detroit
+      - HOSTNAME=plex
+      - PLEX_CLAIM=claim-6F_g5fXNGN3auGL8uJRF
+      - ADVERTISE_IP=http://192.168.50.65:32400
+
+    ports:
+      - "32400:32400/tcp"
+      - "3005:3005/tcp"
+      - "8324:8324/tcp"
+      - "32469:32469/tcp"
+      - "1900:1900/udp"
+      - "32410:32410/udp"
+      - "32412:32412/udp"
+      - "32413:32413/udp"
+      - "32414:32414/udp"
+
+    volumes:
+      - type: bind
+        source: /data
+        target: /data
+
+      - type: volume
+        source: plex_db
+        target: /config
+        volume:
+          nocopy: true
+
+      - type: tmpfs
+        target: /transcode
+
+    devices:
+      - /dev/dri/renderD128:/dev/dri/renderD128
+
+  qbittorrent:
+    container_name: qbittorrent
+    image: lscr.io/linuxserver/qbittorrent:latest
+    restart: unless-stopped
+
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/Detroit
+      - WEBUI_PORT=8080
+
+    volumes:
+      - type: volume
+        source: qbittorrent_config
+        target: /config
+
+      - type: bind
+        source: /data/torrents
+        target: /data/torrents
+
+    ports:
+      - 8080:8080
+      - 6881:6881
+      - 6881:6881/udp
+
+  sabnzbd:
+    image: lscr.io/linuxserver/sabnzbd:latest
+    container_name: sabnzbd
+    restart: unless-stopped
+
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/Detroit
+      - HAS_IPV6=false
+
+    volumes:
+      - type: volume
+        source: sabnzbd_config
+        target: /config
+
+      - type: bind
+        source: /data
+        target: /data
+    
+    ports:
+      - 8181:8080
+
+
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: radarr-movies
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/Detroit
+      
+    volumes:
+      - type: volume
+        source: radarr_config
+        target: /config
+
+      - type: bind
+        source: /data
+        target: /data
+
+    ports:
+      - 7878:7878
+
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: sonarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/Detroit
+    volumes:
+      - type: volume
+        source: sonarr_config
+        target: /config
+
+      - type: bind
+        source: /data
+        target: /data
+
+    ports:
+      - 8989:8989
+    
+    restart: unless-stopped
+
+
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:latest
+    container_name: prowlarr
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/Detroit
+
+    volumes:
+      - type: volume
+        source: prowlarr_config
+        target: /config
+
+    ports:
+      - 9696:9696
+
+  flaresolverr:
+    # DockerHub mirror flaresolverr/flaresolverr:latest
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    container_name: flaresolverr
+    restart: unless-stopped
+    environment:
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - LOG_HTML=${LOG_HTML:-false}
+      - CAPTCHA_SOLVER=${CAPTCHA_SOLVER:-none}
+      - TZ=America/Detroit
+    ports:
+      - "${PORT:-8191}:8191"
+
+  overseerr:
+    image: lscr.io/linuxserver/overseerr:latest
+    container_name: overseerr
+    environment:
+      - LOG_LEVEL=debug
+      - TZ=America/Detroit
+
+    ports:
+      - 5055:5055
+
+    restart: unless-stopped
+    volumes:
+      - type: volume
+        source: overseerr_config
+        target: /config
+
+  tautulli:
+    image: lscr.io/linuxserver/tautulli:latest
+    container_name: tautulli
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/Detroit
+    volumes:
+      - type: volume
+        source: tautulli_config
+        target: /config
+
+    ports:
+      - 6969:8181
+
+    restart: unless-stopped
+
+  bazarr:
+    image: lscr.io/linuxserver/bazarr:latest
+    container_name: bazarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/Detroit
+
+    volumes:
+      - type: volume
+        source: bazarr_config
+        target: /config
+      - /data/media/movies:/movies
+      - /data/media/tv:/tv
+
+    ports:
+      - 6767:6767
+
+    restart: unless-stopped
+
+  nginx:
+    image: lscr.io/linuxserver/nginx:latest
+    container_name: nginx
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/Detroit
+
+    volumes:
+      - /home/ken/docker-volumes/nginx:/config
+
+    ports:
+      - 80:80
+      - 443:443
+
+    links:
+      - tautulli
+      - overseerr
+
+    restart: unless-stopped
+
+## networks:
+networks:
+  default:
+    name: plex-stack
+    enable_ipv6: false
+
+## Volumes
+volumes:
+  plex_db:
+  qbittorrent_config:
+  sabnzbd_config:
+  radarr_config:
+  sonarr_config:
+  prowlarr_config:
+  overseerr_config:
+  tautulli_config:
+  bazarr_config:
